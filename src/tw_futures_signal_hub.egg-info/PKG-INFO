@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: tw-futures-signal-hub
+Version: 0.1.0
+Summary: XQ-driven Taiwan individual-stock futures candidate dashboard
+Requires-Python: >=3.10
+Requires-Dist: Flask>=3.1
+Requires-Dist: pandas>=2.3
+Requires-Dist: requests>=2.32
+Requires-Dist: python-dotenv>=1.2
+Requires-Dist: finmind>=1.9
+Requires-Dist: pywinauto

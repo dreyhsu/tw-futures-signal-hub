@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 CURRENT_XQ = DATA / "current" / "xq_screener_results.csv"
 HISTORY = DATA / "history" / "xq_screener_history.csv"
