@@ -16,7 +16,9 @@ Add `FINMIND_TOKEN` to `.env` if available. Open `http://127.0.0.1:8081`.
 
 ## Daily workflow
 
-`conda run -n tss twfsh run-daily` runs the active XQ screener, exports the result, retains 20 distinct screening dates, finds futures candidates, and refreshes their spot-price history.
+`conda run -n tss twfsh run-daily` runs the active XQ screener, exports the result, retains 20 distinct screening dates, finds futures candidates, refreshes their spot-price history, and downloads the latest monthly/weekly/daily hover charts.
+
+To refresh only the hover charts, run `conda run -n tss twfsh refresh-charts`. Existing valid images are preserved when WEarn temporarily fails.
 
 Run `scripts\\install_tasks.bat` once to create the daily 18:10 task and weekday 08:45 TAIFEX quote task. Quote polling exits after 13:45 and stores stale last-known-good values if TAIFEX temporarily fails.
 

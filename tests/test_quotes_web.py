@@ -29,3 +29,37 @@ def test_dashboard_and_quote_api_empty_state(monkeypatch):
     assert client.get("/").status_code == 200
     payload = client.get("/api/futures-quotes").get_json()
     assert payload["records"] == [] and payload["status"]["state"] == "missing"
+
+
+def test_dashboard_name_has_hover_chart_urls(monkeypatch):
+    candidate = {
+        "symbol": "2330", "name": "台積電", "industry": "半導體", "sub_industry": "晶圓代工",
+        "screened_date": "2026-09-20", "hit_count": 2, "product_code": "CDF",
+        "screen_price": 1000, "latest_close": 1000, "ma5": 990, "close_vs_ma5_pct": 1,
+        "return_1m": 3, "return_1w": 2, "return_1d": 1,
+    }
+    monkeypatch.setattr("tw_futures_signal_hub.web.build_candidates", lambda: [candidate])
+    monkeypatch.setattr("tw_futures_signal_hub.web.load_cache", lambda: {})
+    monkeypatch.setattr(
+        "tw_futures_signal_hub.web.chart_manifest",
+        lambda symbols, chart_dir: {"2330": {"monthly": 1, "weekly": 2, "daily": 3}},
+    )
+    response = create_app().test_client().get("/")
+    body = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert 'class="chart-trigger" tabindex="0" data-symbol="2330"' in body
+    assert "/charts/2330/monthly?v=1" in body
+    assert "/charts/2330/weekly?v=2" in body
+    assert "/charts/2330/daily?v=3" in body
+
+
+def test_chart_route_serves_only_valid_chart_paths(monkeypatch, tmp_path: Path):
+    chart = tmp_path / "TW_2330_daily.png"
+    chart.write_bytes(b"\x89PNG\r\n\x1a\nchart")
+    monkeypatch.setattr("tw_futures_signal_hub.web.CHART_DIR", tmp_path)
+    client = create_app().test_client()
+    response = client.get("/charts/2330/daily?v=1")
+    assert response.status_code == 200
+    assert response.data.startswith(b"\x89PNG")
+    assert client.get("/charts/not-a-symbol/daily").status_code == 404
+    assert client.get("/charts/2330/unknown").status_code == 404

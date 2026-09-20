@@ -20,6 +20,21 @@ def atomic_csv_write(frame: pd.DataFrame, path: Path) -> None:
             temporary.unlink()
 
 
+def atomic_bytes_write(content: bytes, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary and temporary.exists():
+            temporary.unlink()
+
+
 def read_csv(path: Path, **kwargs) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()

@@ -6,5 +6,6 @@ logs/
 data/current/*.csv
 data/history/*.csv
 data/prices/*.csv
+data/charts/*.png
 data/realtime/*.csv
 !data/**/.gitkeep

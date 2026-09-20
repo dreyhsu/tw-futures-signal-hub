@@ -15,5 +15,8 @@ twfsh = "tw_futures_signal_hub.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+tw_futures_signal_hub = ["templates/*.html"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
