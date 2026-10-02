@@ -11,4 +11,5 @@ FUTURES_REFERENCE = DATA / "reference" / "tw_stock_futures_list.csv"
 PRICE_DIR = DATA / "prices"
 CHART_DIR = DATA / "charts"
 QUOTE_CACHE = DATA / "realtime" / "futures_quotes.csv"
+QUOTE_LOG = ROOT / "logs" / "quotes.log"
 KEEP_DATES = 20

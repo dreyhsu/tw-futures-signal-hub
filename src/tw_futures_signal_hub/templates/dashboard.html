@@ -15,8 +15,13 @@
     .section { margin:0 22px 22px; background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
     .title { padding:14px 16px; background:#f8fafc; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:12px; }
     .title h2 { margin:0; font-size:1.05rem; }
-    .status { font-size:.78rem; color:var(--muted); }
+    .status-wrap { display:flex; flex-direction:column; align-items:flex-end; gap:3px; font-size:.78rem; color:var(--muted); }
+    .status { color:var(--muted); }
     .status.stale, .status.error, .stale { color:var(--warn); }
+    .quote-up { color:#dc2626; }
+    .quote-down { color:#15803d; }
+    .quote-flat { color:var(--muted); }
+    [data-contract], [data-previous-close] { display:block; color:var(--muted); font-size:.72rem; font-weight:400; }
     .group { border-bottom:1px solid var(--line); }
     .group:last-child { border:0; }
     .group h3 { margin:0; padding:12px 16px; font-size:1rem; }
@@ -46,20 +51,21 @@
   <header><h1>TW Futures Signal Hub</h1><div class="meta">20-day XQ screener intersection with individual futures list · {{ count }} candidates</div></header>
   <main>
     <section class="section">
-      <div class="title"><h2>TW Futures Candidates</h2><span id="quote-status" class="status {{ quote_status.state }}" title="{{ quote_status.error_sample }}">{{ quote_status.label }}</span></div>
+      <div class="title"><h2>TW Futures Candidates</h2><div class="status-wrap"><span id="quote-status" class="status {{ quote_status.state }}" title="{{ quote_status.error_sample }}">{{ quote_status.label }}</span><span>Latest quote update: <time id="quote-updated-at" datetime="{{ quote_status.updated_at }}">{{ quote_status.updated_at or '--' }}</time></span></div></div>
       {% if groups %}
         {% for group in groups %}
           <article class="group">
             <h3>{{ group.group }} · {{ group.symbol_count }}</h3>
             <div class="table"><table>
-              <thead><tr><th class="left">Symbol</th><th class="left">Name</th><th class="left">Sub Industry</th><th>Hits</th><th>Screen Date</th><th>Futures</th><th>Futures Last</th><th>Close</th><th>MA5</th><th>vs MA5</th><th>1M</th><th>1W</th><th>1D</th></tr></thead>
+              <thead><tr><th class="left">Symbol</th><th class="left">Name</th><th class="left">Sub Industry</th><th>Hits</th><th>Screen Date</th><th>Futures</th><th>Futures Last</th><th>vs Prev Close</th><th>Close</th><th>MA5</th><th>vs MA5</th><th>1M</th><th>1W</th><th>1D</th></tr></thead>
               <tbody>
                 {% for item in group.symbols %}
                   <tr>
                     <td class="left">{{ item.symbol }}</td>
                     <td class="left"><span class="chart-trigger" tabindex="0" data-symbol="{{ item.symbol }}">{{ item.name }}</span></td>
                     <td class="left">{{ item.sub_industry }}</td><td>{{ item.hit_count }}</td><td>{{ item.screened_date }}</td><td>{{ item.product_code }}</td>
-                    <td data-futures-symbol="{{ item.symbol }}" class="{% if item.futures_stale %}stale{% endif %}"><strong data-price>{{ item.futures_last|num }}</strong><small data-contract>{{ item.futures_contract }}</small></td>
+                    <td data-futures-symbol="{{ item.symbol }}" class="{% if item.futures_stale %}stale{% endif %}"><strong data-price class="{{ item.futures_direction }}">{{ item.futures_last|num }}</strong><small data-contract>{{ item.futures_contract }}</small></td>
+                    <td data-change-cell><strong data-change class="{{ item.futures_direction }}">{{ item.futures_change_pct|pct }}</strong><small data-previous-close>Prev: {{ item.futures_previous_close|num }}</small></td>
                     <td>{{ (item.latest_close or item.screen_price)|num }}</td><td>{{ item.ma5|num }}</td><td>{{ item.close_vs_ma5_pct|pct }}</td><td>{{ item.return_1m|pct }}</td><td>{{ item.return_1w|pct }}</td><td>{{ item.return_1d|pct }}</td>
                   </tr>
                 {% endfor %}
@@ -87,6 +93,7 @@
     const chartPreview = document.querySelector('#chart-preview');
     const chartPreviewTitle = document.querySelector('#chart-preview-title');
     const chartItems = Array.from(chartPreview.querySelectorAll('.chart-preview-item'));
+    const quoteUpdatedAt = document.querySelector('#quote-updated-at');
     let chartRequestId = 0;
 
     function updateChartEmptyState() {
@@ -130,17 +137,27 @@
       try {
         const response = await fetch('/api/futures-quotes', {cache:'no-store'}); if (!response.ok) return;
         const payload = await response.json(), quotes = Object.fromEntries(payload.records.map(item => [String(item.stock_symbol), item]));
+        const truthy = value => ['true', '1'].includes(String(value).toLowerCase());
+        const numeric = value => String(value ?? '').trim() !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
         document.querySelectorAll('[data-futures-symbol]').forEach(cell => {
           const quote = quotes[cell.dataset.futuresSymbol]; if (!quote) return;
-          cell.querySelector('[data-price]').textContent = Number.isFinite(Number(quote.last_price)) ? Number(quote.last_price).toFixed(2) : '--';
+          const price = numeric(quote.last_price), changePct = numeric(quote.change_pct), previousClose = numeric(quote.previous_close);
+          const direction = changePct > 0 ? 'quote-up' : changePct < 0 ? 'quote-down' : 'quote-flat';
+          const priceElement = cell.querySelector('[data-price]'), changeCell = cell.closest('tr').querySelector('[data-change-cell]'), changeElement = changeCell.querySelector('[data-change]');
+          priceElement.textContent = price === null ? '--' : price.toFixed(2); priceElement.className = direction;
           cell.querySelector('[data-contract]').textContent = quote.contract_code || quote.product_code || '';
-          cell.classList.toggle('stale', Boolean(quote.stale));
+          changeElement.textContent = changePct === null ? '--' : `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`; changeElement.className = direction;
+          changeCell.querySelector('[data-previous-close]').textContent = previousClose === null ? 'Prev: --' : `Prev: ${previousClose.toFixed(2)}`;
+          cell.classList.toggle('stale', truthy(quote.stale));
         });
         const badge = document.querySelector('#quote-status');
         badge.textContent = payload.status.label || 'Futures status unavailable'; badge.className = 'status ' + (payload.status.state || 'missing'); badge.title = payload.status.error_sample || '';
+        const updatedAt = payload.status.updated_at || '';
+        quoteUpdatedAt.textContent = updatedAt || '--'; quoteUpdatedAt.dateTime = updatedAt;
       } catch (error) { console.warn(error); }
     }
-    refresh(); setInterval(refresh, 180000);
+    refresh(); setInterval(refresh, 10000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   </script>
 </body>
 </html>
